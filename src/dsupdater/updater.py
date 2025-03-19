@@ -14,10 +14,10 @@ from dsbase.log import LocalLogger
 from dsbase.text import Text, color, print_colored
 from dsbase.util import ArgParser, dsbase_setup, handle_interrupt
 
-from dsbin.dsupdater import updaters
-from dsbin.dsupdater.privilege_helper import PrivilegeHelper
-from dsbin.dsupdater.update_manager import UpdateManager
-from dsbin.dsupdater.updaters.macos import MacOSSoftwareUpdate
+from dsupdater import updaters
+from dsupdater.privilege_helper import PrivilegeHelper
+from dsupdater.update_manager import UpdateManager
+from dsupdater.updaters.macos import MacOSSoftwareUpdate
 
 if TYPE_CHECKING:
     from argparse import Namespace
@@ -76,7 +76,7 @@ class Updater:
         self.updater_classes = []
 
         # Import all modules from updaters package
-        from dsbin.dsupdater import updaters
+        from dsupdater import updaters
 
         # Get all modules in the updaters package
         for module_name in dir(updaters):

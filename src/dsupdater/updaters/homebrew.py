@@ -5,7 +5,7 @@ from typing import ClassVar
 
 from dsbase.util import handle_interrupt
 
-from dsbin.dsupdater.update_manager import UpdateManager, UpdateStage
+from dsupdater.update_manager import UpdateManager, UpdateStage
 
 
 @dataclass

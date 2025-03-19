@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from dsbase.util import handle_interrupt
 
-from dsbin.dsupdater.update_manager import UpdateManager, UpdateStage, UpdateStageFailedError
+from dsupdater.update_manager import UpdateManager, UpdateStage, UpdateStageFailedError
 
 if TYPE_CHECKING:
     from logging import Logger

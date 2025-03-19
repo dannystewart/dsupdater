@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, ClassVar
 
 from dsbase.util import handle_interrupt
 
-from dsbin.dsupdater.shell_helper import ShellHelper
+from dsupdater.shell_helper import ShellHelper
 
 if TYPE_CHECKING:
     from logging import Logger
 
-    from dsbin.dsupdater.privilege_helper import PrivilegeHelper
-    from dsbin.dsupdater.updater import Updater
+    from dsupdater.privilege_helper import PrivilegeHelper
+    from dsupdater.updater import Updater
 
 
 @dataclass
