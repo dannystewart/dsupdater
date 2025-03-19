@@ -13,9 +13,9 @@ from dsupdater.update_manager import UpdateManager, UpdateStage
 class DSPackageUpdater(UpdateManager):
     """Updater for DS Python packages."""
 
-    display_name: str = "dsbin"
+    display_name: str = "ds"
     description: str = "install or update dsbin and related packages"
-    prerequisite: str | None = "pip"
+    prerequisite: str | None = "dsbin"
     sort_order: int = 5
 
     update_stages: ClassVar[dict[str, UpdateStage]] = {
