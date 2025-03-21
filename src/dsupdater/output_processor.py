@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from dsupdater.filter_phrases import FILTER_PHRASES
+from dsupdater.filter_phrases import FILTER_PHRASES, PROMPT_PATTERNS
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -42,6 +42,15 @@ class OutputProcessor:
         # Clean up any remaining backspaces at the start
         return cleaned.lstrip("\x08")
 
+    def is_interactive_prompt(self, line: str) -> bool:
+        """Check if the line contains an interactive prompt pattern."""
+        for pattern in PROMPT_PATTERNS:
+            if re.search(pattern, line):
+                return True
+
+        # Also check for lines that end with a colon and no newline
+        return bool(line.rstrip().endswith(":") and "error" not in line.lower())
+
     def process_line(self, line: str) -> None:
         """Process a single line of output."""
         if not line.strip():
@@ -52,6 +61,13 @@ class OutputProcessor:
             for error_indicator in ["error:", "fatal:", "failed", "exit status"]
         ):
             self.last_error = line
+
+        # Always show interactive prompts regardless of filter settings
+        if self.is_interactive_prompt(line):
+            self.logger.debug("Interactive prompt detected: %s", line)
+            sys.stdout.write(line + "\n")
+            sys.stdout.flush()
+            return
 
         if self.filter_output:
             if all(phrase not in line for phrase in FILTER_PHRASES):
@@ -73,7 +89,7 @@ class OutputProcessor:
 
         self.line_buffer += cleaned
 
-        if is_eof or after in {"\r\n", "\n"}:
+        if is_eof or after in {"\r\n", "\n"} or self.is_interactive_prompt(self.line_buffer):
             line = self.line_buffer.strip()
             self.line_buffer = ""
             if line:
@@ -81,6 +97,14 @@ class OutputProcessor:
 
     def process_timeout_buffer(self) -> None:
         """Process any remaining buffer when a timeout occurs."""
+        if self.is_interactive_prompt(self.line_buffer):
+            # If buffer contains a prompt, process it immediately
+            if self.line_buffer.strip():
+                self.logger.debug("Processing buffered prompt: %r", self.line_buffer)
+                self.process_line(self.line_buffer.strip())
+                self.line_buffer = ""
+            return
+
         if "\n" in self.line_buffer:
             lines = self.line_buffer.split("\n")
             self.line_buffer = lines[-1]  # Keep the last partial line

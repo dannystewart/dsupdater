@@ -32,3 +32,17 @@ FILTER_PHRASES: list[str] = [
     "Uninstalling ",
     "Using cached",
 ]
+
+PROMPT_PATTERNS: list[str] = [
+    r"\[y/n\]",
+    r"\[Y/n\]",
+    r"\[y/N\]",
+    r"\(y/n\)",
+    r"\(Y/n\)",
+    r"\(y/N\)",
+    r"yes/no",
+    r"Yes/No",
+    r"Continue\?",
+    r"Proceed\?",
+    r"Overwrite\?",
+]

@@ -111,6 +111,7 @@ class ShellHelper:
         """Process output from the child process, handling interactive prompts."""
         output_seen = False
         consecutive_timeouts = 0
+        max_timeouts = 3
 
         while True:
             try:
@@ -121,7 +122,23 @@ class ShellHelper:
                 consecutive_timeouts = 0
             except pexpect.TIMEOUT:
                 consecutive_timeouts += 1
-                if output_seen and consecutive_timeouts >= 2:
+
+                # Process any buffered content that might contain a prompt
+                processor.process_timeout_buffer()
+
+                # Check if we have a potential interactive prompt in the buffer
+                if processor.is_interactive_prompt(processor.line_buffer):
+                    self.logger.debug(
+                        "Potential prompt detected in buffer: %r", processor.line_buffer
+                    )
+                    processor.process_line(processor.line_buffer.strip())
+                    processor.line_buffer = ""
+                    self._handle_interactive_prompt(child, processor)
+                    break
+
+                # Switch to interactive mode after a few timeouts if we've seen output
+                if output_seen and consecutive_timeouts >= max_timeouts:
+                    self.logger.debug("Multiple timeouts detected, switching to interactive mode.")
                     self._handle_interactive_prompt(child, processor)
                     break
 
@@ -134,10 +151,16 @@ class ShellHelper:
 
     def _handle_output(self, child: pexpect.spawn[Any], processor: OutputProcessor) -> bool:
         """Handle a single chunk of output. Returns True if output was processed."""
-        index = child.expect(["\r\n", "\n", pexpect.EOF], timeout=0.5)
+        # Increased timeout to give more time for slow prompts
+        index = child.expect(["\r\n", "\n", pexpect.EOF], timeout=1.0)
 
         if child.before:
             cleaned = processor.clean_control_sequences(child.before)
+
+            # Check if there's a prompt in the output
+            if processor.is_interactive_prompt(cleaned):
+                self.logger.debug("Prompt detected in output: %r", cleaned)
+
             processor.process_raw_output(cleaned, child.after, index == 2)  # type: ignore
             return True
 
@@ -156,19 +179,45 @@ class ShellHelper:
         self.logger.debug("Process appears to be waiting for input.")
         self.logger.debug("Process info - pid: %s, command: %s", child.pid, child.args)
 
-        while True:
-            try:
+        # If we have anything in the line buffer, process it as it might be a prompt
+        if processor.line_buffer.strip():
+            self.logger.debug("Processing line buffer: %r", processor.line_buffer)
+            processor.process_line(processor.line_buffer.strip())
+            processor.line_buffer = ""
+
+        # Set process to nonblocking mode
+        child.setecho(True)
+        child.setwinsize(24, 80)  # Set a standard terminal size
+
+        try:  # Flush any remaining output
+            current = self._read_interactive_output(child)
+            if current and current.strip():
+                self.logger.debug("Initial interactive output: %r", current)
+                cleaned = processor.clean_control_sequences(current)
+                self._process_interactive_output(cleaned, processor)
+        except Exception as e:
+            self.logger.debug("Error flushing output: %s", str(e))
+
+        while True:  # Now connect process to terminal
+            try:  # Pass user input to the child process
+                user_input = input()
+                child.sendline(user_input)
+
+                # Read response
                 current = self._read_interactive_output(child)
                 if not current:
                     continue
 
                 self.logger.debug("Raw interactive output: %r", current)
                 cleaned = processor.clean_control_sequences(current)
-                self.logger.debug("Cleaned interactive output: %r", cleaned)
-
                 self._process_interactive_output(cleaned, processor)
 
             except pexpect.EOF:
+                self.logger.debug("Interactive process ended.")
+                break
+            except KeyboardInterrupt:
+                self.logger.debug("User interrupted interactive process.")
+                child.sendintr()  # Send SIGINT to the child process
                 break
             except Exception as e:
                 self.logger.debug("Interactive mode error: %s", str(e))
@@ -176,8 +225,7 @@ class ShellHelper:
 
     def _read_interactive_output(self, child: pexpect.spawn[Any]) -> str | None:
         """Read output from an interactive process."""
-        try:
-            # Increase buffer size and timeout to try to get complete lines
+        try:  # Increase buffer size and timeout to try to get complete lines
             output = child.read_nonblocking(size=4096, timeout=0.5)
             return output.decode("utf-8") if isinstance(output, bytes) else output
         except pexpect.TIMEOUT:
@@ -185,9 +233,8 @@ class ShellHelper:
 
     def _process_interactive_output(self, cleaned: str, processor: OutputProcessor) -> None:
         """Process and optionally filter interactive output."""
-        # Only process complete lines
         lines = [line for line in cleaned.splitlines() if line.strip()]
-        if not lines:
+        if not lines:  # Only process complete lines
             return
 
         if processor.filter_output:
@@ -212,8 +259,9 @@ class ShellHelper:
         log_message: str,
         log_level: LogLevel = "error",
     ) -> bool:
-        """Check command output to see if it contains a specified string. Used to handle specific
-        conditions identified within the output of an updater.
+        """Check command output to see if it contains a specified string.
+
+        Used to handle specific conditions identified within the output of an updater.
 
         Args:
             output: The output of the command to check.
