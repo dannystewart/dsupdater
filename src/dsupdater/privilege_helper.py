@@ -5,7 +5,7 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from dsbase.util import handle_interrupt
 
@@ -17,13 +17,11 @@ if TYPE_CHECKING:
 class PrivilegeHelper:
     """Helper class for checking and acquiring sudo privileges."""
 
-    SUDO_REQUIRED_TEXT = "Sudo is required for some operations."
-    FORCE_SUDO_TEXT = "Forcing sudo due to command-line argument."
-    PIPE_MISSING_TEXT = (
-        "Pipe file missing. Use the Bash wrapper to avoid unnecessary password prompts."
-    )
-    INSTALL_WRAPPER_TEXT = (
-        "Run 'dsupdater-install' and then use 'updater' for this script from now on."
+    SUDO_REQUIRED_TEXT: ClassVar[str] = "Sudo is required for some operations."
+    FORCE_SUDO_TEXT: ClassVar[str] = "Forcing sudo due to command-line argument."
+    INSTALL_WRAPPER_TEXT: ClassVar[str] = (
+        "Avoid unnecessary password prompts by using the Bash wrapper. "
+        "Install with 'dsupdater-install' and then run 'updater' instead."
     )
 
     def __init__(self, args: Namespace | None, logger: Logger):
@@ -65,7 +63,6 @@ class PrivilegeHelper:
 
         except FileNotFoundError:
             if not self.force_sudo:
-                self.logger.warning(self.PIPE_MISSING_TEXT)
                 self.logger.warning(self.INSTALL_WRAPPER_TEXT)
             self.needs_sudo = False
 
