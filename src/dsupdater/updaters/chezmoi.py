@@ -40,13 +40,13 @@ class ChezmoiPackageManager(UpdateManager):
     @handle_interrupt()
     def perform_update_stages(self) -> None:
         """Update dotfiles using Chezmoi."""
-        try:  # First check if there are any changes to apply
+        try:  # Check for changes first before attempting to update
             success, output = self.run_stage("status")
             if success and output and output.strip():
                 self.logger.debug("[%s] Found changes to apply.", self.display_name)
                 self.run_stage("update")
             else:
-                self.logger.info("[%s] Dotfiles are up to date.", self.display_name)
+                self.logger.debug("[%s] Chezmoi is up to date.", self.display_name)
 
         except UpdateStageFailedError as e:
             if platform.system() == "Windows":
