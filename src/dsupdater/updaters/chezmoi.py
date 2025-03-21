@@ -24,11 +24,15 @@ class ChezmoiPackageManager(UpdateManager):
     logger: Logger = field(init=False)
 
     update_stages: ClassVar[dict[str, UpdateStage]] = {
+        "status": UpdateStage(
+            command="chezmoi status",
+            capture_output=True,
+            filter_output=True,
+        ),
         "update": UpdateStage(
             command="chezmoi update",
             start_message="Updating dotfiles...",
             error_message="Failed to update dotfiles: %s",
-            filter_output=True,
             raise_error=True,
         ),
     }
@@ -36,8 +40,14 @@ class ChezmoiPackageManager(UpdateManager):
     @handle_interrupt()
     def perform_update_stages(self) -> None:
         """Update dotfiles using Chezmoi."""
-        try:
-            self.run_stage("update")
+        try:  # First check if there are any changes to apply
+            success, output = self.run_stage("status")
+            if success and output and output.strip():
+                self.logger.debug("[%s] Found changes to apply.", self.display_name)
+                self.run_stage("update")
+            else:
+                self.logger.info("[%s] Dotfiles are up to date.", self.display_name)
+
         except UpdateStageFailedError as e:
             if platform.system() == "Windows":
                 # Errors are to be expected on Windows, so treat them as warnings
