@@ -38,29 +38,19 @@ class DSPackageUpdater(UpdateManager):
         super().__post_init__()
         self.version_checker = VersionChecker()
 
-    def _get_installed_version(self, package: str) -> str | None:
-        """Get the currently installed version of a package."""
-        return self.version_checker.get_installed_version(package)
-
-    def _get_latest_version(self, package: str) -> str | None:
-        """Get latest version based on package source."""
-        if package == "dsbase":
-            return self.version_checker.get_pypi_version(package)
-        return self.version_checker.get_github_version("dannystewart", package, use_ssh=True)
-
     @handle_interrupt()
     def perform_update_stages(self) -> None:
         """Update pip itself, then update all installed packages."""
         # Get current package versions before uninstalling
-        dsbin_old = self._get_installed_version("dsbin")
-        dsbase_old = self._get_installed_version("dsbase")
+        dsbin_old = self.version_checker.get_installed_version("dsbin")
+        dsbase_old = self.version_checker.get_installed_version("dsbase")
 
         # Uninstall the existing packages to ensure a clean install
         self.run_stage("uninstall")
 
         # Get latest package version numbers
-        dsbin_new = self._get_latest_version("dsbin")
-        dsbase_new = self._get_latest_version("dsbase")
+        dsbin_new = self.version_checker.get_pypi_version("dsbin")
+        dsbase_new = self.version_checker.get_pypi_version("dsbase")
 
         # Formulate the end message with the version information
         if dsbin_old and dsbin_new and dsbin_old != dsbin_new:
